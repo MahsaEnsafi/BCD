@@ -1,0 +1,90 @@
+
+import pandas as pd
+import os
+from keras.preprocessing.image import ImageDataGenerator
+import tensorflow.keras.applications as pre_trained
+from keras.layers import Input,Dropout,Conv2D, MaxPooling2D,Activation,Dense,GlobalAveragePooling2D
+from keras import Model
+from keras.optimizers import Adam
+from keras.losses import BinaryCrossentropy
+from keras.metrics import Precision,TruePositives,FalsePositives,TrueNegatives,FalseNegatives
+
+  
+
+
+def build_model():
+  net=pre_trained.vgg16.VGG16(include_top=False,weights='imagenet') # or every pretraines model
+  for layer in net.layers:
+    layer.trainable=False
+  x=GlobalAveragePooling2D()(net.output)
+  out1=Dense(128,activation='relu')(x)
+  out2=Dense(128,activation='relu')(out1)
+  out=Dense(1,activation='sigmoid')(out2)
+  model=Model(net.input,out)
+  model.compile(loss='binary_crossentropy',
+              optimizer='Adam',
+              metrics=['accuracy',Precision(),TruePositives(),FalsePositives(),TrueNegatives(),FalseNegatives()])
+  return model
+
+
+batch_size = batch_size
+train_datagen = ImageDataGenerator(
+        rescale=1./255)
+valid_datagen = ImageDataGenerator(rescale=1./255)
+train_generator = train_datagen.flow_from_directory(
+        'train',  # this is the target directory
+        target_size=(128, 128),  # all images will be resized to 150x150
+        batch_size=batch_size,
+        class_mode='binary')  # since we use binary_crossentropy loss, we need binary labels
+
+# this is a similar generator, for validation data
+validation_generator = valid_datagen.flow_from_directory(
+        'valid',
+        target_size=(128,128),
+        batch_size=batch_size,
+        class_mode='binary')
+
+#fit the model
+model=build_model()
+history=model.fit_generator(
+        train_generator,
+        steps_per_epoch=step,
+        epochs=epochs,
+        validation_data=validation_generator,)
+
+
+
+
+
+import matplotlib.pyplot as plt
+
+# summarize history for accuracy
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model learning curves')
+plt.ylabel('Cross Entropy')
+plt.xlabel('epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.show()
+
+
+#evalute the model
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+# this is a generator that will read pictures found in
+# subfolers of 'data/train', and indefinitely generate
+# batches of augmented ima
+test_generator = test_datagen.flow_from_directory(
+        'test',  # this is the target directory
+        target_size=(128, 128),  # all images will be resized to 150x150
+        batch_size=batch_size,
+        class_mode='binary') 
+model.evaluate_generator(test_generator)
